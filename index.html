@@ -10,10 +10,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Noto Sans KR', sans-serif; background-color: #fff5f7; min-height: 100vh; }
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #fff5f7; min-height: 100vh; overflow-x: hidden; }
         .card { background: white; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         
-        /* 책상 스타일 */
         .desk { 
             width: 85px; height: 65px; border-radius: 6px; border: 2px solid #fce4ec; 
             transition: all 0.2s; cursor: grab; background: white;
@@ -23,22 +22,9 @@
         .seat-full { background-color: #fff0f3; border-color: #f06292; color: #d81b60; font-weight: bold; }
         .desk.over { border: 2px dashed #f06292; background-color: #fce4ec; }
 
-        /* 그리드 컨테이너 */
-        #seatGrid { 
-            display: grid; 
-            justify-content: center; 
-            padding: 20px;
-            width: fit-content;
-            margin: 0 auto;
-        }
-
-        /* 시험 모드 간격 */
+        #seatGrid { display: grid; justify-content: center; padding: 20px; width: fit-content; margin: 0 auto; }
         .grid-exam { gap: 20px; }
-
-        /* 짝꿍 모드 간격 (가로 간격 0으로 시작) */
         .grid-pair { column-gap: 0px; row-gap: 20px; }
-        
-        /* 짝꿍 모드 여백: 2, 4, 6...번째 책상 뒤에 복도 생성 */
         .desk-pair-gap { margin-right: 40px !important; }
 
         .platform { 
@@ -50,6 +36,7 @@
         .tab-active { background-color: #f06292 !important; color: white !important; }
         .drop-active { border: 2px dashed #f06292 !important; background-color: #fffafb !important; }
         
+        .settings-btn:hover svg { transform: rotate(90deg); transition: transform 0.4s ease; }
         #exportMenu { display: none; position: absolute; right: 0; top: 110%; z-index: 100; width: 160px; background: white; }
 
         @media print {
@@ -97,14 +84,19 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
             <!-- 왼쪽: 명단 관리 -->
-            <div class="lg:col-span-1 no-print">
+            <div class="lg:col-span-1 no-print space-y-4">
                 <div id="dropZone" class="card p-5 border-2 border-transparent">
                     <div class="flex justify-between items-center mb-4">
                         <input type="text" id="classNameInput" onchange="renameClass(this.value)" class="text-lg font-bold text-gray-700 border-b border-transparent focus:border-pink-500 outline-none w-2/3" value="1반">
                         <button onclick="deleteClass()" class="text-xs text-gray-400 hover:text-red-500">삭제</button>
                     </div>
                     
-                    <div class="space-y-2 mb-6 bg-pink-50 p-3 rounded-lg">
+                    <div class="flex gap-1 mb-4">
+                        <input type="text" id="manualNameInput" placeholder="이름 직접 입력" class="flex-1 text-sm border border-pink-100 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-200" onkeypress="if(event.keyCode==13) addStudentManual()">
+                        <button onclick="addStudentManual()" class="bg-pink-100 text-pink-600 px-3 py-2 rounded-lg text-sm font-bold hover:bg-pink-200">추가</button>
+                    </div>
+
+                    <div class="space-y-2 mb-4 bg-pink-50 p-3 rounded-lg">
                         <label class="flex items-center text-sm text-gray-600 cursor-pointer">
                             <input type="checkbox" id="orderMode" class="mr-2 accent-pink-500"> 명단 순서대로 배치
                         </label>
@@ -113,8 +105,13 @@
                         </label>
                     </div>
 
-                    <p class="text-[10px] text-gray-400 font-bold mb-2">학생 명단 (파일 드래그 가능)</p>
-                    <ul id="studentList" class="space-y-1 text-sm text-gray-500 max-h-[450px] overflow-y-auto pr-2"></ul>
+                    <!-- 핵심 기능: 패턴 복사 버튼 -->
+                    <button onclick="syncPatternToAll()" class="w-full mb-6 bg-pink-50 text-pink-600 border border-pink-200 py-2 rounded-lg text-sm font-bold hover:bg-pink-100 transition-colors flex items-center justify-center gap-2">
+                        🔗 현재 배치 패턴을 모든 반에 적용
+                    </button>
+
+                    <p class="text-[10px] text-gray-400 font-bold mb-2 uppercase">학생 명단 (파일 드래그 가능)</p>
+                    <ul id="studentList" class="space-y-1 text-sm text-gray-500 max-h-[350px] overflow-y-auto pr-2"></ul>
                 </div>
             </div>
 
@@ -131,9 +128,10 @@
         <div class="fixed bottom-3 left-4 text-[10px] text-gray-400 no-print">by. 백조니</div>
 
         <!-- 설정 아이콘 -->
-        <button onclick="openSettings()" class="no-print fixed bottom-4 right-4 bg-white p-3 rounded-full shadow-lg border text-pink-400 hover:scale-110 transition-transform">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+        <button onclick="openSettings()" class="settings-btn no-print fixed bottom-4 right-4 bg-white p-3 rounded-full shadow-lg border-2 border-pink-50 text-pink-500 hover:scale-110 transition-all z-50">
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
             </svg>
         </button>
     </div>
@@ -156,7 +154,7 @@
                 </div>
             </div>
             <div class="mt-8 flex gap-2">
-                <button onclick="saveSettings()" class="flex-1 bg-pink-500 text-white py-2 rounded-lg font-bold">적용</button>
+                <button onclick="saveSettings()" class="flex-1 bg-pink-500 text-white py-2 rounded-lg font-bold shadow-lg shadow-pink-100">적용</button>
                 <button onclick="closeSettings()" class="flex-1 bg-gray-100 text-gray-600 py-2 rounded-lg">닫기</button>
             </div>
         </div>
@@ -164,7 +162,7 @@
 
     <script>
         // --- 데이터 상태 ---
-        let classes = JSON.parse(localStorage.getItem('seatHelper_v3')) || [
+        let classes = JSON.parse(localStorage.getItem('seatHelper_v5')) || [
             { id: Date.now(), name: '1반', students: [], arrangement: [] }
         ];
         let currentClassId = classes[0].id;
@@ -172,6 +170,42 @@
         let dragSource = null;
 
         window.onload = () => { renderTabs(); loadClassData(); initUpload(); };
+
+        // --- 배치 동기화 핵심 기능 ---
+        function syncPatternToAll() {
+            const currentClass = getCurrentClass();
+            if (!currentClass.arrangement || currentClass.arrangement.length === 0) {
+                alert('현재 반의 자리를 먼저 배치해주세요!');
+                return;
+            }
+
+            if (!confirm(`현재 '${currentClass.name}'의 책상 배치 순서를 모든 반에 똑같이 적용할까요? (학생은 각 반 명단에 맞게 배치됩니다)`)) return;
+
+            // 1. 현재 반의 패턴 파악 (책상 위치별로 몇 번 학생이 앉았는지)
+            // 예: 1번 책상에 '3번 학생'이 앉아있음 -> 패턴 index 0은 학생번호 3
+            const pattern = currentClass.arrangement.map(studentName => {
+                return currentClass.students.indexOf(studentName);
+            });
+
+            // 2. 다른 모든 반에 해당 패턴 적용
+            classes.forEach(cls => {
+                if (cls.id === currentClassId) return; // 현재 반은 건너뜀
+
+                const newArrangement = [];
+                pattern.forEach(studentIdx => {
+                    // 해당 번호의 학생이 그 반에 존재하면 배치, 없으면 빈자리
+                    if (studentIdx !== -1 && cls.students[studentIdx]) {
+                        newArrangement.push(cls.students[studentIdx]);
+                    } else {
+                        newArrangement.push(null);
+                    }
+                });
+                cls.arrangement = newArrangement;
+            });
+
+            saveToLocal();
+            alert('모든 반에 동일한 배치 패턴이 적용되었습니다.');
+        }
 
         // --- 출력 시스템 ---
         function toggleExportMenu() { const m = document.getElementById('exportMenu'); m.style.display = (m.style.display === 'block' ? 'none' : 'block'); }
@@ -197,7 +231,15 @@
             }
         }
 
-        // --- 파일 업로드 ---
+        // --- 명단 관리 ---
+        function addStudentManual() {
+            const input = document.getElementById('manualNameInput');
+            const name = input.value.trim();
+            if (!name) return;
+            getCurrentClass().students.push(name);
+            input.value = ''; saveToLocal(); loadClassData();
+        }
+
         function initUpload() {
             const dz = document.getElementById('dropZone');
             dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('drop-active'); });
@@ -206,9 +248,7 @@
                 e.preventDefault(); dz.classList.remove('drop-active');
                 if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
             });
-            document.getElementById('fileInput').addEventListener('change', (e) => {
-                if (e.target.files.length) handleFile(e.target.files[0]);
-            });
+            document.getElementById('fileInput').addEventListener('change', (e) => { if (e.target.files.length) handleFile(e.target.files[0]); });
         }
         function handleFile(file) {
             const reader = new FileReader();
@@ -217,15 +257,14 @@
                 const sheet = workbook.Sheets[workbook.SheetNames[0]];
                 const names = XLSX.utils.sheet_to_json(sheet, {header: 1}).map(r => r[0]).filter(n => n && n.toString().trim());
                 const cls = getCurrentClass();
-                cls.students = names; cls.arrangement = [];
-                saveToLocal(); loadClassData();
+                cls.students = [...cls.students, ...names];
+                cls.arrangement = []; saveToLocal(); loadClassData();
             };
             reader.readAsArrayBuffer(file);
         }
 
-        // --- 반 및 데이터 관리 ---
         function getCurrentClass() { return classes.find(c => c.id === currentClassId); }
-        function saveToLocal() { localStorage.setItem('seatHelper_v3', JSON.stringify(classes)); }
+        function saveToLocal() { localStorage.setItem('seatHelper_v5', JSON.stringify(classes)); }
         function renderTabs() {
             const container = document.getElementById('classTabs'); container.innerHTML = '';
             classes.forEach(cls => {
@@ -248,22 +287,27 @@
         }
         function renameClass(v) { getCurrentClass().name = v; saveToLocal(); renderTabs(); }
 
-        // --- 배치 및 렌더링 ---
         function loadClassData() {
             const cls = getCurrentClass();
             document.getElementById('classNameInput').value = cls.name;
             const listEl = document.getElementById('studentList');
-            listEl.innerHTML = cls.students.length ? '' : '<li class="italic py-8 text-center text-gray-300">파일을 이쪽으로<br>드래그하세요</li>';
+            listEl.innerHTML = cls.students.length ? '' : '<li class="italic py-8 text-center text-gray-300">이름을 입력하거나<br>파일을 드래그하세요</li>';
             cls.students.forEach((n, i) => {
-                const li = document.createElement('li'); li.className = 'flex justify-between p-1 border-b border-pink-50 hover:bg-pink-50';
-                li.innerHTML = `<span>${i+1}. ${n}</span>`; listEl.appendChild(li);
+                const li = document.createElement('li'); li.className = 'flex justify-between p-1 border-b border-pink-50 group hover:bg-pink-50';
+                li.innerHTML = `<span>${i+1}. ${n}</span> <button onclick="removeStudent(${i})" class="hidden group-hover:block text-red-400 text-xs">삭제</button>`; 
+                listEl.appendChild(li);
             });
             renderDesks(cls.arrangement);
         }
 
+        function removeStudent(index) {
+            const cls = getCurrentClass();
+            cls.students.splice(index, 1); saveToLocal(); loadClassData();
+        }
+
         function arrangeSeats() {
             const cls = getCurrentClass();
-            if (!cls.students.length) return alert('명단을 먼저 업로드하세요.');
+            if (!cls.students.length) return alert('명단을 먼저 등록하세요.');
             let list = [...cls.students];
             if (!document.getElementById('orderMode').checked) {
                 for (let i = list.length - 1; i > 0; i--) {
@@ -287,38 +331,24 @@
             const grid = document.getElementById('seatGrid');
             const showNum = document.getElementById('showNumberToggle').checked;
             grid.innerHTML = '';
-            
             grid.className = (config.mode === 'pair') ? 'grid-pair' : 'grid-exam';
             grid.style.gridTemplateColumns = `repeat(${config.cols}, auto)`;
 
-            // 교탁 위치 처리
-            if (config.view === 'teacher') {
-                document.getElementById('platformTop').classList.add('hidden');
-                document.getElementById('platformBottom').classList.remove('hidden');
-            } else {
-                document.getElementById('platformTop').classList.remove('hidden');
-                document.getElementById('platformBottom').classList.add('hidden');
-            }
+            config.view === 'teacher' ? (document.getElementById('platformTop').classList.add('hidden'), document.getElementById('platformBottom').classList.remove('hidden')) : (document.getElementById('platformTop').classList.remove('hidden'), document.getElementById('platformBottom').classList.add('hidden'));
 
             const totalRows = Math.ceil(Math.max(arrangement.length, 20) / config.cols);
             const totalSeats = totalRows * config.cols;
 
             for (let i = 0; i < totalSeats; i++) {
-                // 시점에 따른 데이터 인덱스 반전 (거울 모드)
                 let dataIdx = (config.view === 'teacher') ? (totalSeats - 1 - i) : i;
-                
                 const desk = document.createElement('div');
                 desk.className = `desk ${arrangement[dataIdx] ? 'seat-full' : ''}`;
                 desk.draggable = true;
                 desk.dataset.index = dataIdx;
 
-                // 짝꿍 모드 핵심 로직 (시각적 순서 i 기준)
                 if (config.mode === 'pair') {
                     const posInRow = i % config.cols; 
-                    // 한 쌍(2명) 뒤에 간격 부여 (단, 줄의 끝이 아닐 때만)
-                    if (posInRow % 2 === 1 && posInRow !== config.cols - 1) {
-                        desk.classList.add('desk-pair-gap');
-                    }
+                    if (posInRow % 2 === 1 && posInRow !== config.cols - 1) desk.classList.add('desk-pair-gap');
                 }
 
                 desk.addEventListener('dragstart', handleDragStart);
