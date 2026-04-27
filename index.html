@@ -10,20 +10,55 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Noto Sans KR', sans-serif; background-color: #fff5f7; min-height: 100vh; }
+        /* 테마별 변수 설정 */
+        :root {
+            --t-50: #fff5f7;
+            --t-100: #fce4ec;
+            --t-200: #f8bbd0;
+            --t-400: #f06292;
+            --t-500: #e91e63;
+            --t-600: #d81b60;
+        }
+
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: var(--t-50); min-height: 100vh; transition: background-color 0.3s; }
         .card { background: white; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        .desk { width: 85px; height: 65px; border-radius: 6px; border: 2px solid #fce4ec; transition: all 0.2s; cursor: grab; background: white; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; flex-shrink: 0; }
-        .seat-full { background-color: #fff0f3; border-color: #f06292; color: #d81b60; }
-        .desk.over { border: 2px dashed #f06292; background-color: #fce4ec; }
+        
+        /* 테마 적용 요소들 */
+        .theme-text { color: var(--t-500); }
+        .theme-text-dark { color: var(--t-600); }
+        .theme-bg { background-color: var(--t-500); }
+        .theme-bg-light { background-color: var(--t-50); }
+        .theme-bg-100 { background-color: var(--t-100); }
+        .theme-border { border-color: var(--t-500); }
+        .theme-border-light { border-color: var(--t-100); }
+        .theme-accent { accent-color: var(--t-500); }
+
+        .desk { 
+            width: 85px; height: 65px; border-radius: 6px; border: 2px solid var(--t-100); 
+            transition: all 0.2s; cursor: grab; background: white; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            position: relative; flex-shrink: 0; 
+        }
+        .seat-full { background-color: var(--t-50); border-color: var(--t-500); color: var(--t-600); }
+        .desk.over { border: 2px dashed var(--t-500); background-color: var(--t-100); }
+
         #seatGrid { display: grid; justify-content: center; padding: 20px; width: fit-content; margin: 0 auto; }
         .grid-exam { gap: 20px; }
         .grid-pair { column-gap: 0px; row-gap: 20px; }
         .desk-pair-gap { margin-right: 40px !important; }
-        .platform { width: 150px; height: 35px; background: #fce4ec; border: 2px solid #f06292; color: #f06292; display: flex; align-items: center; justify-content: center; border-radius: 8px; font-weight: bold; font-size: 0.8rem; margin: 10px auto 30px; }
-        .tab-active { background-color: #f06292 !important; color: white !important; }
-        .drop-active { border: 2px dashed #f06292 !important; background-color: #fffafb !important; }
+
+        .platform { 
+            width: 150px; height: 35px; background: var(--t-100); border: 2px solid var(--t-500); 
+            color: var(--t-500); display: flex; align-items: center; justify-content: center; 
+            border-radius: 8px; font-weight: bold; font-size: 0.8rem; margin: 10px auto 30px; 
+        }
+
+        .tab-active { background-color: var(--t-500) !important; color: white !important; border-color: var(--t-500) !important; }
+        .drop-active { border: 2px dashed var(--t-500) !important; background-color: var(--t-50) !important; }
+        
         .settings-btn:hover svg { transform: rotate(90deg); transition: transform 0.4s ease; }
         #exportMenu { display: none; position: absolute; right: 0; top: 110%; z-index: 100; width: 160px; background: white; }
+
         @media print { .no-print { display: none !important; } body { background: white; } .card { box-shadow: none; border: none; } }
     </style>
 </head>
@@ -32,7 +67,7 @@
     <div class="max-w-7xl mx-auto">
         <!-- 상단 헤더 -->
         <header class="flex flex-wrap justify-between items-center mb-6 no-print gap-4">
-            <h1 class="text-2xl font-bold text-pink-600">🌸 자리 배치 도우미</h1>
+            <h1 class="text-2xl font-bold theme-text">🌸 자리 배치 도우미</h1>
             
             <div class="flex items-center gap-2 bg-white p-2 rounded-xl shadow-sm border">
                 <button onclick="setView('student')" id="viewBtnStudent" class="px-3 py-1 rounded-lg text-sm font-bold tab-active">학생 모드</button>
@@ -41,17 +76,17 @@
 
             <div class="flex gap-2 relative">
                 <input type="file" id="fileInput" class="hidden">
-                <button onclick="document.getElementById('fileInput').click()" class="bg-white text-pink-500 border border-pink-500 px-4 py-2 rounded-lg hover:bg-pink-50 font-medium">📁 명단 업로드</button>
-                <button onclick="arrangeSeats()" class="bg-pink-500 text-white px-5 py-2 rounded-lg hover:bg-pink-600 shadow-md font-medium">✨ 랜덤 배치</button>
+                <button onclick="document.getElementById('fileInput').click()" class="bg-white theme-text border theme-border px-4 py-2 rounded-lg hover:theme-bg-light font-medium transition-colors">📁 명단 업로드</button>
+                <button onclick="arrangeSeats()" class="theme-bg text-white px-5 py-2 rounded-lg hover:opacity-90 shadow-md font-medium transition-all">✨ 랜덤 배치</button>
                 
                 <div class="relative group">
                     <button onclick="toggleExportMenu()" class="bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-800 font-medium flex items-center gap-2">
                         🖨️ 출력 <small>▼</small>
                     </button>
                     <div id="exportMenu" class="card border border-gray-200 overflow-hidden shadow-xl">
-                        <button onclick="exportResult('print')" class="w-full text-left px-4 py-2 hover:bg-pink-50 text-sm border-b">인쇄하기</button>
-                        <button onclick="exportResult('pdf')" class="w-full text-left px-4 py-2 hover:bg-pink-50 text-sm border-b">PDF 저장</button>
-                        <button onclick="exportResult('png')" class="w-full text-left px-4 py-2 hover:bg-pink-50 text-sm">PNG 이미지 저장</button>
+                        <button onclick="exportResult('print')" class="w-full text-left px-4 py-2 hover:theme-bg-light text-sm border-b">인쇄하기</button>
+                        <button onclick="exportResult('pdf')" class="w-full text-left px-4 py-2 hover:theme-bg-light text-sm border-b">PDF 저장</button>
+                        <button onclick="exportResult('png')" class="w-full text-left px-4 py-2 hover:theme-bg-light text-sm">PNG 이미지 저장</button>
                     </div>
                 </div>
             </div>
@@ -66,38 +101,37 @@
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
             <!-- 왼쪽: 명단 관리 -->
             <div class="lg:col-span-1 no-print space-y-4">
-                <div id="dropZone" class="card p-5 border-2 border-transparent">
+                <div id="dropZone" class="card p-5 border-2 border-transparent transition-all">
                     <div class="flex justify-between items-center mb-4">
-                        <input type="text" id="classNameInput" onchange="renameClass(this.value)" class="text-lg font-bold text-gray-700 border-b border-transparent focus:border-pink-500 outline-none w-2/3" value="1반">
+                        <input type="text" id="classNameInput" onchange="renameClass(this.value)" class="text-lg font-bold text-gray-700 border-b border-transparent focus:theme-border outline-none w-2/3" value="1반">
                         <button onclick="deleteClass()" class="text-xs text-gray-400 hover:text-red-500">삭제</button>
                     </div>
                     
                     <div class="flex gap-1 mb-4">
-                        <input type="text" id="manualNameInput" placeholder="이름 직접 입력" class="flex-1 text-sm border border-pink-100 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-pink-200" onkeypress="if(event.keyCode==13) addStudentManual()">
-                        <button onclick="addStudentManual()" class="bg-pink-100 text-pink-600 px-3 py-2 rounded-lg text-sm font-bold hover:bg-pink-200">추가</button>
+                        <input type="text" id="manualNameInput" placeholder="이름 직접 입력" class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-gray-200" onkeypress="if(event.keyCode==13) addStudentManual()">
+                        <button onclick="addStudentManual()" class="theme-bg-100 theme-text px-3 py-2 rounded-lg text-sm font-bold hover:opacity-80">추가</button>
                     </div>
 
-                    <!-- 설정 체크박스들 -->
-                    <div class="space-y-2 mb-4 bg-pink-50 p-3 rounded-lg">
+                    <div class="space-y-2 mb-4 theme-bg-light p-3 rounded-lg">
                         <label class="flex items-center text-sm text-gray-600 cursor-pointer">
-                            <input type="checkbox" id="orderMode" class="mr-2 accent-pink-500"> 명단 순서대로 배치
+                            <input type="checkbox" id="orderMode" class="mr-2 theme-accent"> 명단 순서대로 배치
                         </label>
-                        <label class="flex items-center text-sm text-gray-600 cursor-pointer border-t border-pink-100 pt-2 mt-2">
-                            <input type="checkbox" id="showNumberToggle" onchange="renderDesksByCurrent()" class="mr-2 accent-pink-500" checked> 책상 위치번호(1~40) 표시
+                        <label class="flex items-center text-sm text-gray-600 cursor-pointer border-t theme-border-light pt-2 mt-2">
+                            <input type="checkbox" id="showNumberToggle" onchange="renderDesksByCurrent()" class="mr-2 theme-accent" checked> 책상 위치번호 표시
                         </label>
                         <label class="flex items-center text-sm text-gray-600 cursor-pointer">
-                            <input type="checkbox" id="showStudentNoToggle" onchange="renderDesksByCurrent()" class="mr-2 accent-pink-500" checked> 학생 개인번호 표시
+                            <input type="checkbox" id="showStudentNoToggle" onchange="renderDesksByCurrent()" class="mr-2 theme-accent" checked> 학생 개인번호 표시
                         </label>
                     </div>
 
-                    <button onclick="syncPatternToAll()" class="w-full mb-4 bg-pink-50 text-pink-600 border border-pink-200 py-2 rounded-lg text-sm font-bold hover:bg-pink-100 transition-colors">
+                    <button onclick="syncPatternToAll()" class="w-full mb-4 theme-bg-light theme-text border theme-border-light py-2 rounded-lg text-sm font-bold hover:opacity-80 transition-all">
                         🔗 현재 배치 패턴 모든 반 적용
                     </button>
 
                     <div class="border-t pt-4 mt-2">
                         <div class="flex justify-between items-center mb-2">
-                            <p class="text-[10px] text-gray-400 font-bold uppercase">학생 명단</p>
-                            <button onclick="downloadSample()" class="text-[10px] text-pink-400 hover:underline">📥 샘플 양식</button>
+                            <p class="text-[10px] text-gray-400 font-bold uppercase tracking-tight">학생 명단</p>
+                            <button onclick="downloadSample()" class="text-[10px] theme-text hover:underline">📥 샘플 양식</button>
                         </div>
                         <ul id="studentList" class="space-y-1 text-sm text-gray-500 max-h-[300px] overflow-y-auto pr-2"></ul>
                     </div>
@@ -117,7 +151,7 @@
         <div class="fixed bottom-3 left-4 text-[10px] text-gray-400 no-print">by. 백조니</div>
 
         <!-- 설정 아이콘 -->
-        <button onclick="openSettings()" class="settings-btn no-print fixed bottom-4 right-4 bg-white p-3 rounded-full shadow-lg border-2 border-pink-50 text-pink-500 hover:scale-110 transition-all z-50">
+        <button onclick="openSettings()" class="settings-btn no-print fixed bottom-4 right-4 bg-white p-3 rounded-full shadow-lg border theme-text hover:scale-110 transition-all z-50">
             <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="3"></circle>
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
@@ -131,8 +165,19 @@
             <h3 class="text-xl font-bold mb-6 text-gray-800">⚙️ 환경 설정</h3>
             <div class="space-y-4">
                 <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">색상 테마</label>
+                    <select id="themeSelect" onchange="updateThemeVars(this.value)" class="w-full border rounded p-2 outline-none focus:ring-2 focus:ring-gray-200">
+                        <option value="pink">로맨틱 핑크 (기본)</option>
+                        <option value="blue">스카이 블루</option>
+                        <option value="green">프레쉬 그린</option>
+                        <option value="yellow">써니 옐로우</option>
+                        <option value="purple">미스틱 퍼플</option>
+                        <option value="orange">에너지 오렌지</option>
+                    </select>
+                </div>
+                <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">책상 열 개수</label>
-                    <input type="number" id="colCount" value="6" min="1" max="12" class="w-full border rounded p-2 outline-none focus:ring-2 focus:ring-pink-200">
+                    <input type="number" id="colCount" value="6" min="1" max="12" class="w-full border rounded p-2 outline-none">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">배치 형태</label>
@@ -143,22 +188,45 @@
                 </div>
             </div>
             <div class="mt-8 flex gap-2">
-                <button onclick="saveSettings()" class="flex-1 bg-pink-500 text-white py-2 rounded-lg font-bold">적용</button>
+                <button onclick="saveSettings()" class="flex-1 theme-bg text-white py-2 rounded-lg font-bold shadow-lg opacity-90">적용</button>
                 <button onclick="closeSettings()" class="flex-1 bg-gray-100 text-gray-600 py-2 rounded-lg">닫기</button>
             </div>
         </div>
     </div>
 
     <script>
+        // --- 테마 맵 ---
+        const colorThemes = {
+            pink: { 50: '#fff5f7', 100: '#fce4ec', 200: '#f8bbd0', 400: '#f06292', 500: '#e91e63', 600: '#d81b60' },
+            blue: { 50: '#f0f7ff', 100: '#e0f0fe', 200: '#bae0fd', 400: '#60a5fa', 500: '#3b82f6', 600: '#2563eb' },
+            green: { 50: '#f0fdf4', 100: '#dcfce7', 200: '#bbf7d0', 400: '#4ade80', 500: '#22c55e', 600: '#16a34a' },
+            yellow: { 50: '#fffdf0', 100: '#fef9c3', 200: '#fef08a', 400: '#facc15', 500: '#eab308', 600: '#ca8a04' },
+            purple: { 50: '#faf5ff', 100: '#f3e8ff', 200: '#e9d5ff', 400: '#c084fc', 500: '#a855f7', 600: '#9333ea' },
+            orange: { 50: '#fffaf5', 100: '#ffedd5', 200: '#fed7aa', 400: '#fb923c', 500: '#f97316', 600: '#ea580c' }
+        };
+
+        function updateThemeVars(themeName) {
+            const colors = colorThemes[themeName];
+            const root = document.documentElement;
+            Object.keys(colors).forEach(key => {
+                root.style.setProperty(`--t-${key}`, colors[key]);
+            });
+            config.theme = themeName;
+        }
+
         // --- 데이터 관리 ---
-        let classes = JSON.parse(localStorage.getItem('seatHelper_v8')) || [
+        let classes = JSON.parse(localStorage.getItem('seatHelper_v9')) || [
             { id: Date.now(), name: '1반', students: [], arrangement: [] }
         ];
         let currentClassId = classes[0].id;
-        let config = { view: 'student', cols: 6, mode: 'exam' };
+        let config = JSON.parse(localStorage.getItem('seatHelper_config')) || { view: 'student', cols: 6, mode: 'exam', theme: 'pink' };
         let dragSource = null;
 
-        window.onload = () => { renderTabs(); loadClassData(); initUpload(); };
+        window.onload = () => { 
+            updateThemeVars(config.theme);
+            document.getElementById('themeSelect').value = config.theme;
+            renderTabs(); loadClassData(); initUpload(); 
+        };
 
         // --- 샘플 서식 ---
         function downloadSample() {
@@ -179,7 +247,7 @@
                 if (cls.id === currentClassId) return;
                 cls.arrangement = pattern.map(no => no ? (cls.students.find(s => s.no == no) || null) : null);
             });
-            saveToLocal(); alert('적용되었습니다.');
+            saveToLocal(); alert('모든 반에 동일 패턴이 적용되었습니다.');
         }
 
         // --- 출력 ---
@@ -206,7 +274,7 @@
             }
         }
 
-        // --- 명단 업로드 및 수동 추가 ---
+        // --- 명단 관리 ---
         function addStudentManual() {
             const input = document.getElementById('manualNameInput');
             const name = input.value.trim();
@@ -248,16 +316,21 @@
         }
 
         function getCurrentClass() { return classes.find(c => c.id === currentClassId); }
-        function saveToLocal() { localStorage.setItem('seatHelper_v8', JSON.stringify(classes)); }
+        function saveToLocal() { 
+            localStorage.setItem('seatHelper_v9', JSON.stringify(classes)); 
+            localStorage.setItem('seatHelper_config', JSON.stringify(config));
+        }
+        
         function renderTabs() {
             const container = document.getElementById('classTabs'); container.innerHTML = '';
             classes.forEach(cls => {
                 const btn = document.createElement('button');
-                btn.className = `px-4 py-1 rounded-lg text-sm font-medium transition-all ${cls.id === currentClassId ? 'bg-pink-500 text-white shadow-md' : 'bg-white text-gray-500 border'}`;
+                btn.className = `px-4 py-1 rounded-lg text-sm font-medium transition-all border ${cls.id === currentClassId ? 'tab-active shadow-md' : 'bg-white text-gray-500'}`;
                 btn.innerText = cls.name; btn.onclick = () => { currentClassId = cls.id; renderTabs(); loadClassData(); };
                 container.appendChild(btn);
             });
         }
+
         function addClass() {
             const nc = { id: Date.now(), name: (classes.length + 1) + '반', students: [], arrangement: [] };
             classes.push(nc); currentClassId = nc.id; saveToLocal(); renderTabs(); loadClassData();
@@ -277,7 +350,7 @@
             const listEl = document.getElementById('studentList');
             listEl.innerHTML = cls.students.length ? '' : '<li class="italic py-8 text-center text-gray-300">명단을 등록하세요</li>';
             cls.students.forEach((s, i) => {
-                const li = document.createElement('li'); li.className = 'flex justify-between p-1 border-b border-pink-50 group hover:bg-pink-50 text-xs';
+                const li = document.createElement('li'); li.className = 'flex justify-between p-1 border-b theme-border-light group hover:theme-bg-light text-xs';
                 li.innerHTML = `<span>${s.no}. ${s.name}</span> <button onclick="removeStudent(${i})" class="hidden group-hover:block text-red-400">삭제</button>`; 
                 listEl.appendChild(li);
             });
@@ -313,8 +386,8 @@
 
         function renderDesks(arrangement = []) {
             const grid = document.getElementById('seatGrid');
-            const showDeskNum = document.getElementById('showNumberToggle').checked; // 책상 위치 번호
-            const showStudentNum = document.getElementById('showStudentNoToggle').checked; // 학생 번호
+            const showDeskNum = document.getElementById('showNumberToggle').checked;
+            const showStudentNum = document.getElementById('showStudentNoToggle').checked;
 
             grid.innerHTML = '';
             grid.className = (config.mode === 'pair') ? 'grid-pair' : 'grid-exam';
@@ -342,13 +415,11 @@
                 desk.addEventListener('dragleave', () => desk.classList.remove('over'));
                 desk.addEventListener('drop', handleDrop);
 
-                // 1. 책상 위치 번호 (1~40)
-                let deskNumLabel = showDeskNum ? `<span class="text-[9px] opacity-30 absolute top-1 left-1 font-normal">${dataIdx + 1}</span>` : '';
+                let deskNumLabel = showDeskNum ? `<span class="text-[9px] opacity-30 absolute top-1 left-1 font-normal text-gray-400">${dataIdx + 1}</span>` : '';
                 
                 const student = arrangement[dataIdx];
                 if (student) {
-                    // 2. 학생 개인 번호
-                    let studentNoHtml = showStudentNum ? `<span class="text-[10px] text-pink-400 leading-none mb-1">${student.no}</span>` : '';
+                    let studentNoHtml = showStudentNum ? `<span class="text-[10px] theme-text leading-none mb-1">${student.no}</span>` : '';
                     desk.innerHTML = `
                         ${deskNumLabel}
                         <div class="flex flex-col items-center justify-center pt-1">
@@ -379,6 +450,8 @@
         function saveSettings() {
             config.cols = parseInt(document.getElementById('colCount').value) || 6;
             config.mode = document.getElementById('layoutMode').value;
+            // 테마는 updateThemeVars에서 이미 반영됨
+            saveToLocal();
             renderDesksByCurrent(); closeSettings();
         }
         window.onclick = (e) => { if (!e.target.closest('.relative')) document.getElementById('exportMenu').style.display = 'none'; };
