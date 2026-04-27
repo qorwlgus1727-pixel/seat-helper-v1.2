@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>자리 배치 도우미</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #fff5f7; min-height: 100vh; }
+        .card { background: white; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        
+        /* 책상 스타일 */
+        .desk { 
+            width: 85px; height: 65px; border-radius: 6px; border: 2px solid #fce4ec; 
+            transition: all 0.2s; cursor: grab; background: white;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            position: relative; flex-shrink: 0;
+        }
+        .seat-full { background-color: #fff0f3; border-color: #f06292; color: #d81b60; font-weight: bold; }
+        .desk.over { border: 2px dashed #f06292; background-color: #fce4ec; }
+
+        /* 그리드 컨테이너 */
+        #seatGrid { 
+            display: grid; 
+            justify-content: center; 
+            padding: 20px;
+            width: fit-content;
+            margin: 0 auto;
+        }
+
+        /* 시험 모드 간격 */
+        .grid-exam { gap: 20px; }
+
+        /* 짝꿍 모드 간격 (가로 간격 0으로 시작) */
+        .grid-pair { column-gap: 0px; row-gap: 20px; }
+        
+        /* 짝꿍 모드 여백: 2, 4, 6...번째 책상 뒤에 복도 생성 */
+        .desk-pair-gap { margin-right: 40px !important; }
+
+        .platform { 
+            width: 150px; height: 35px; background: #fce4ec; border: 2px solid #f06292; 
+            color: #f06292; display: flex; align-items: center; justify-content: center; 
+            border-radius: 8px; font-weight: bold; font-size: 0.8rem; margin: 10px auto 30px;
+        }
+
+        .tab-active { background-color: #f06292 !important; color: white !important; }
+        .drop-active { border: 2px dashed #f06292 !important; background-color: #fffafb !important; }
+        
+        #exportMenu { display: none; position: absolute; right: 0; top: 110%; z-index: 100; width: 160px; background: white; }
+
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white; }
+            .card { box-shadow: none; border: none; }
+        }
+    </style>
+</head>
+<body class="p-4 md:p-6 pb-12">
+
+    <div class="max-w-7xl mx-auto">
+        <!-- 상단 헤더 -->
+        <header class="flex flex-wrap justify-between items-center mb-6 no-print gap-4">
+            <h1 class="text-2xl font-bold text-pink-600">🌸 자리 배치 도우미</h1>
+            
+            <div class="flex items-center gap-2 bg-white p-2 rounded-xl shadow-sm border">
+                <button onclick="setView('student')" id="viewBtnStudent" class="px-3 py-1 rounded-lg text-sm font-bold tab-active">학생 모드</button>
+                <button onclick="setView('teacher')" id="viewBtnTeacher" class="px-3 py-1 rounded-lg text-sm font-bold bg-gray-100 text-gray-500">교사 모드 (거울)</button>
+            </div>
+
+            <div class="flex gap-2 relative">
+                <input type="file" id="fileInput" class="hidden">
+                <button onclick="document.getElementById('fileInput').click()" class="bg-white text-pink-500 border border-pink-500 px-4 py-2 rounded-lg hover:bg-pink-50 font-medium">📁 명단 업로드</button>
+                <button onclick="arrangeSeats()" class="bg-pink-500 text-white px-5 py-2 rounded-lg hover:bg-pink-600 shadow-md font-medium">✨ 랜덤 배치</button>
+                
+                <div class="relative group">
+                    <button onclick="toggleExportMenu()" class="bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-800 font-medium flex items-center gap-2">
+                        🖨️ 출력 <small>▼</small>
+                    </button>
+                    <div id="exportMenu" class="card border border-gray-200 overflow-hidden shadow-xl">
+                        <button onclick="exportResult('print')" class="w-full text-left px-4 py-2 hover:bg-pink-50 text-sm border-b">인쇄하기</button>
+                        <button onclick="exportResult('pdf')" class="w-full text-left px-4 py-2 hover:bg-pink-50 text-sm border-b">PDF 저장</button>
+                        <button onclick="exportResult('png')" class="w-full text-left px-4 py-2 hover:bg-pink-50 text-sm">PNG 이미지 저장</button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- 반 탭 -->
+        <div class="flex items-center gap-2 mb-4 no-print overflow-x-auto pb-2">
+            <div id="classTabs" class="flex gap-2"></div>
+            <button onclick="addClass()" class="px-3 py-1 bg-white border border-dashed rounded-lg text-gray-400 hover:bg-gray-50">+</button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <!-- 왼쪽: 명단 관리 -->
+            <div class="lg:col-span-1 no-print">
+                <div id="dropZone" class="card p-5 border-2 border-transparent">
+                    <div class="flex justify-between items-center mb-4">
+                        <input type="text" id="classNameInput" onchange="renameClass(this.value)" class="text-lg font-bold text-gray-700 border-b border-transparent focus:border-pink-500 outline-none w-2/3" value="1반">
+                        <button onclick="deleteClass()" class="text-xs text-gray-400 hover:text-red-500">삭제</button>
+                    </div>
+                    
+                    <div class="space-y-2 mb-6 bg-pink-50 p-3 rounded-lg">
+                        <label class="flex items-center text-sm text-gray-600 cursor-pointer">
+                            <input type="checkbox" id="orderMode" class="mr-2 accent-pink-500"> 명단 순서대로 배치
+                        </label>
+                        <label class="flex items-center text-sm text-gray-600 cursor-pointer">
+                            <input type="checkbox" id="showNumberToggle" onchange="renderDesksByCurrent()" class="mr-2 accent-pink-500" checked> 책상 번호 표시
+                        </label>
+                    </div>
+
+                    <p class="text-[10px] text-gray-400 font-bold mb-2">학생 명단 (파일 드래그 가능)</p>
+                    <ul id="studentList" class="space-y-1 text-sm text-gray-500 max-h-[450px] overflow-y-auto pr-2"></ul>
+                </div>
+            </div>
+
+            <!-- 오른쪽: 배치도 -->
+            <div class="lg:col-span-3">
+                <div id="printArea" class="card p-10 min-h-[600px] bg-white flex flex-col items-center">
+                    <div id="platformTop" class="platform">교탁 (칠판)</div>
+                    <div id="seatGrid"></div>
+                    <div id="platformBottom" class="platform hidden" style="margin-top:30px; margin-bottom:10px;">교탁 (칠판)</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="fixed bottom-3 left-4 text-[10px] text-gray-400 no-print">by. 백조니</div>
+
+        <!-- 설정 아이콘 -->
+        <button onclick="openSettings()" class="no-print fixed bottom-4 right-4 bg-white p-3 rounded-full shadow-lg border text-pink-400 hover:scale-110 transition-transform">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            </svg>
+        </button>
+    </div>
+
+    <!-- 설정 모달 -->
+    <div id="settingsModal" class="modal fixed inset-0 bg-black/40 hidden items-center justify-center z-[200]">
+        <div class="bg-white p-8 rounded-2xl w-80 shadow-2xl">
+            <h3 class="text-xl font-bold mb-6 text-gray-800">⚙️ 환경 설정</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">책상 열 개수</label>
+                    <input type="number" id="colCount" value="6" min="1" max="12" class="w-full border rounded p-2 outline-none focus:ring-2 focus:ring-pink-200">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">배치 형태</label>
+                    <select id="layoutMode" class="w-full border rounded p-2 outline-none">
+                        <option value="exam">시험 대형 (개별)</option>
+                        <option value="pair">짝꿍 모드 (2인 1조)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mt-8 flex gap-2">
+                <button onclick="saveSettings()" class="flex-1 bg-pink-500 text-white py-2 rounded-lg font-bold">적용</button>
+                <button onclick="closeSettings()" class="flex-1 bg-gray-100 text-gray-600 py-2 rounded-lg">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 데이터 상태 ---
+        let classes = JSON.parse(localStorage.getItem('seatHelper_v3')) || [
+            { id: Date.now(), name: '1반', students: [], arrangement: [] }
+        ];
+        let currentClassId = classes[0].id;
+        let config = { view: 'student', cols: 6, mode: 'exam' };
+        let dragSource = null;
+
+        window.onload = () => { renderTabs(); loadClassData(); initUpload(); };
+
+        // --- 출력 시스템 ---
+        function toggleExportMenu() { const m = document.getElementById('exportMenu'); m.style.display = (m.style.display === 'block' ? 'none' : 'block'); }
+        async function exportResult(type) {
+            const el = document.getElementById('printArea');
+            document.getElementById('exportMenu').style.display = 'none';
+            if (type === 'print') { window.print(); } 
+            else {
+                const canvas = await html2canvas(el, { scale: 2 });
+                if (type === 'png') {
+                    const link = document.createElement('a');
+                    link.download = `자리배치_${getCurrentClass().name}.png`;
+                    link.href = canvas.toDataURL(); link.click();
+                } else if (type === 'pdf') {
+                    const { jsPDF } = window.jspdf;
+                    const pdf = new jsPDF('l', 'mm', 'a4');
+                    const imgData = canvas.toDataURL('image/png');
+                    const w = pdf.internal.pageSize.getWidth();
+                    const h = (canvas.height * w) / canvas.width;
+                    pdf.addImage(imgData, 'PNG', 0, 0, w, h);
+                    pdf.save(`자리배치_${getCurrentClass().name}.pdf`);
+                }
+            }
+        }
+
+        // --- 파일 업로드 ---
+        function initUpload() {
+            const dz = document.getElementById('dropZone');
+            dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('drop-active'); });
+            dz.addEventListener('dragleave', () => dz.classList.remove('drop-active'));
+            dz.addEventListener('drop', (e) => {
+                e.preventDefault(); dz.classList.remove('drop-active');
+                if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+            });
+            document.getElementById('fileInput').addEventListener('change', (e) => {
+                if (e.target.files.length) handleFile(e.target.files[0]);
+            });
+        }
+        function handleFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const workbook = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const names = XLSX.utils.sheet_to_json(sheet, {header: 1}).map(r => r[0]).filter(n => n && n.toString().trim());
+                const cls = getCurrentClass();
+                cls.students = names; cls.arrangement = [];
+                saveToLocal(); loadClassData();
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // --- 반 및 데이터 관리 ---
+        function getCurrentClass() { return classes.find(c => c.id === currentClassId); }
+        function saveToLocal() { localStorage.setItem('seatHelper_v3', JSON.stringify(classes)); }
+        function renderTabs() {
+            const container = document.getElementById('classTabs'); container.innerHTML = '';
+            classes.forEach(cls => {
+                const btn = document.createElement('button');
+                btn.className = `px-4 py-1 rounded-lg text-sm font-medium transition-all ${cls.id === currentClassId ? 'bg-pink-500 text-white shadow-md' : 'bg-white text-gray-500 hover:bg-pink-50 border'}`;
+                btn.innerText = cls.name; btn.onclick = () => { currentClassId = cls.id; renderTabs(); loadClassData(); };
+                container.appendChild(btn);
+            });
+        }
+        function addClass() {
+            const nc = { id: Date.now(), name: (classes.length + 1) + '반', students: [], arrangement: [] };
+            classes.push(nc); currentClassId = nc.id; saveToLocal(); renderTabs(); loadClassData();
+        }
+        function deleteClass() {
+            if (classes.length === 1) return alert('최소 한 개의 반은 필요합니다.');
+            if (confirm('현재 반을 삭제하시겠습니까?')) {
+                classes = classes.filter(c => c.id !== currentClassId); currentClassId = classes[0].id;
+                saveToLocal(); renderTabs(); loadClassData();
+            }
+        }
+        function renameClass(v) { getCurrentClass().name = v; saveToLocal(); renderTabs(); }
+
+        // --- 배치 및 렌더링 ---
+        function loadClassData() {
+            const cls = getCurrentClass();
+            document.getElementById('classNameInput').value = cls.name;
+            const listEl = document.getElementById('studentList');
+            listEl.innerHTML = cls.students.length ? '' : '<li class="italic py-8 text-center text-gray-300">파일을 이쪽으로<br>드래그하세요</li>';
+            cls.students.forEach((n, i) => {
+                const li = document.createElement('li'); li.className = 'flex justify-between p-1 border-b border-pink-50 hover:bg-pink-50';
+                li.innerHTML = `<span>${i+1}. ${n}</span>`; listEl.appendChild(li);
+            });
+            renderDesks(cls.arrangement);
+        }
+
+        function arrangeSeats() {
+            const cls = getCurrentClass();
+            if (!cls.students.length) return alert('명단을 먼저 업로드하세요.');
+            let list = [...cls.students];
+            if (!document.getElementById('orderMode').checked) {
+                for (let i = list.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [list[i], list[j]] = [list[j], list[i]];
+                }
+            }
+            cls.arrangement = list; saveToLocal(); renderDesks(list);
+        }
+
+        function setView(v) {
+            config.view = v;
+            document.getElementById('viewBtnStudent').className = `px-3 py-1 rounded-lg text-sm font-bold ${v === 'student' ? 'tab-active' : 'bg-gray-100 text-gray-500'}`;
+            document.getElementById('viewBtnTeacher').className = `px-3 py-1 rounded-lg text-sm font-bold ${v === 'teacher' ? 'tab-active' : 'bg-gray-100 text-gray-500'}`;
+            renderDesksByCurrent();
+        }
+
+        function renderDesksByCurrent() { renderDesks(getCurrentClass().arrangement); }
+
+        function renderDesks(arrangement = []) {
+            const grid = document.getElementById('seatGrid');
+            const showNum = document.getElementById('showNumberToggle').checked;
+            grid.innerHTML = '';
+            
+            grid.className = (config.mode === 'pair') ? 'grid-pair' : 'grid-exam';
+            grid.style.gridTemplateColumns = `repeat(${config.cols}, auto)`;
+
+            // 교탁 위치 처리
+            if (config.view === 'teacher') {
+                document.getElementById('platformTop').classList.add('hidden');
+                document.getElementById('platformBottom').classList.remove('hidden');
+            } else {
+                document.getElementById('platformTop').classList.remove('hidden');
+                document.getElementById('platformBottom').classList.add('hidden');
+            }
+
+            const totalRows = Math.ceil(Math.max(arrangement.length, 20) / config.cols);
+            const totalSeats = totalRows * config.cols;
+
+            for (let i = 0; i < totalSeats; i++) {
+                // 시점에 따른 데이터 인덱스 반전 (거울 모드)
+                let dataIdx = (config.view === 'teacher') ? (totalSeats - 1 - i) : i;
+                
+                const desk = document.createElement('div');
+                desk.className = `desk ${arrangement[dataIdx] ? 'seat-full' : ''}`;
+                desk.draggable = true;
+                desk.dataset.index = dataIdx;
+
+                // 짝꿍 모드 핵심 로직 (시각적 순서 i 기준)
+                if (config.mode === 'pair') {
+                    const posInRow = i % config.cols; 
+                    // 한 쌍(2명) 뒤에 간격 부여 (단, 줄의 끝이 아닐 때만)
+                    if (posInRow % 2 === 1 && posInRow !== config.cols - 1) {
+                        desk.classList.add('desk-pair-gap');
+                    }
+                }
+
+                desk.addEventListener('dragstart', handleDragStart);
+                desk.addEventListener('dragover', (e) => { e.preventDefault(); desk.classList.add('over'); });
+                desk.addEventListener('dragleave', () => desk.classList.remove('over'));
+                desk.addEventListener('drop', handleDrop);
+
+                let numLabel = showNum ? `<span class="text-[9px] opacity-30 absolute top-1 left-1">${dataIdx + 1}</span>` : '';
+                desk.innerHTML = `${numLabel}<span class="text-sm">${arrangement[dataIdx] || ''}</span>`;
+                grid.appendChild(desk);
+            }
+        }
+
+        function handleDragStart(e) { dragSource = this; e.dataTransfer.effectAllowed = 'move'; this.style.opacity = '0.4'; }
+        function handleDrop(e) {
+            e.preventDefault(); this.classList.remove('over'); dragSource.style.opacity = '1';
+            if (dragSource !== this) {
+                const cls = getCurrentClass();
+                const srcIdx = parseInt(dragSource.dataset.index);
+                const destIdx = parseInt(this.dataset.index);
+                [cls.arrangement[srcIdx], cls.arrangement[destIdx]] = [cls.arrangement[destIdx], cls.arrangement[srcIdx]];
+                saveToLocal(); renderDesks(cls.arrangement);
+            }
+        }
+
+        function openSettings() { document.getElementById('settingsModal').classList.replace('hidden', 'flex'); }
+        function closeSettings() { document.getElementById('settingsModal').classList.replace('flex', 'hidden'); }
+        function saveSettings() {
+            config.cols = parseInt(document.getElementById('colCount').value) || 6;
+            config.mode = document.getElementById('layoutMode').value;
+            renderDesksByCurrent(); closeSettings();
+        }
+        window.onclick = (e) => { if (!e.target.closest('.relative')) document.getElementById('exportMenu').style.display = 'none'; };
+    </script>
+</body>
+</html>
