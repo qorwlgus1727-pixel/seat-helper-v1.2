@@ -10,40 +10,21 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Noto Sans KR', sans-serif; background-color: #fff5f7; min-height: 100vh; overflow-x: hidden; }
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #fff5f7; min-height: 100vh; }
         .card { background: white; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        
-        .desk { 
-            width: 85px; height: 65px; border-radius: 6px; border: 2px solid #fce4ec; 
-            transition: all 0.2s; cursor: grab; background: white;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            position: relative; flex-shrink: 0;
-        }
-        .seat-full { background-color: #fff0f3; border-color: #f06292; color: #d81b60; font-weight: bold; }
+        .desk { width: 85px; height: 65px; border-radius: 6px; border: 2px solid #fce4ec; transition: all 0.2s; cursor: grab; background: white; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; flex-shrink: 0; }
+        .seat-full { background-color: #fff0f3; border-color: #f06292; color: #d81b60; }
         .desk.over { border: 2px dashed #f06292; background-color: #fce4ec; }
-
         #seatGrid { display: grid; justify-content: center; padding: 20px; width: fit-content; margin: 0 auto; }
         .grid-exam { gap: 20px; }
         .grid-pair { column-gap: 0px; row-gap: 20px; }
         .desk-pair-gap { margin-right: 40px !important; }
-
-        .platform { 
-            width: 150px; height: 35px; background: #fce4ec; border: 2px solid #f06292; 
-            color: #f06292; display: flex; align-items: center; justify-content: center; 
-            border-radius: 8px; font-weight: bold; font-size: 0.8rem; margin: 10px auto 30px;
-        }
-
+        .platform { width: 150px; height: 35px; background: #fce4ec; border: 2px solid #f06292; color: #f06292; display: flex; align-items: center; justify-content: center; border-radius: 8px; font-weight: bold; font-size: 0.8rem; margin: 10px auto 30px; }
         .tab-active { background-color: #f06292 !important; color: white !important; }
         .drop-active { border: 2px dashed #f06292 !important; background-color: #fffafb !important; }
-        
         .settings-btn:hover svg { transform: rotate(90deg); transition: transform 0.4s ease; }
         #exportMenu { display: none; position: absolute; right: 0; top: 110%; z-index: 100; width: 160px; background: white; }
-
-        @media print {
-            .no-print { display: none !important; }
-            body { background: white; }
-            .card { box-shadow: none; border: none; }
-        }
+        @media print { .no-print { display: none !important; } body { background: white; } .card { box-shadow: none; border: none; } }
     </style>
 </head>
 <body class="p-4 md:p-6 pb-12">
@@ -96,22 +77,30 @@
                         <button onclick="addStudentManual()" class="bg-pink-100 text-pink-600 px-3 py-2 rounded-lg text-sm font-bold hover:bg-pink-200">추가</button>
                     </div>
 
+                    <!-- 설정 체크박스들 -->
                     <div class="space-y-2 mb-4 bg-pink-50 p-3 rounded-lg">
                         <label class="flex items-center text-sm text-gray-600 cursor-pointer">
                             <input type="checkbox" id="orderMode" class="mr-2 accent-pink-500"> 명단 순서대로 배치
                         </label>
+                        <label class="flex items-center text-sm text-gray-600 cursor-pointer border-t border-pink-100 pt-2 mt-2">
+                            <input type="checkbox" id="showNumberToggle" onchange="renderDesksByCurrent()" class="mr-2 accent-pink-500" checked> 책상 위치번호(1~40) 표시
+                        </label>
                         <label class="flex items-center text-sm text-gray-600 cursor-pointer">
-                            <input type="checkbox" id="showNumberToggle" onchange="renderDesksByCurrent()" class="mr-2 accent-pink-500" checked> 책상 번호 표시
+                            <input type="checkbox" id="showStudentNoToggle" onchange="renderDesksByCurrent()" class="mr-2 accent-pink-500" checked> 학생 개인번호 표시
                         </label>
                     </div>
 
-                    <!-- 핵심 기능: 패턴 복사 버튼 -->
-                    <button onclick="syncPatternToAll()" class="w-full mb-6 bg-pink-50 text-pink-600 border border-pink-200 py-2 rounded-lg text-sm font-bold hover:bg-pink-100 transition-colors flex items-center justify-center gap-2">
-                        🔗 현재 배치 패턴을 모든 반에 적용
+                    <button onclick="syncPatternToAll()" class="w-full mb-4 bg-pink-50 text-pink-600 border border-pink-200 py-2 rounded-lg text-sm font-bold hover:bg-pink-100 transition-colors">
+                        🔗 현재 배치 패턴 모든 반 적용
                     </button>
 
-                    <p class="text-[10px] text-gray-400 font-bold mb-2 uppercase">학생 명단 (파일 드래그 가능)</p>
-                    <ul id="studentList" class="space-y-1 text-sm text-gray-500 max-h-[350px] overflow-y-auto pr-2"></ul>
+                    <div class="border-t pt-4 mt-2">
+                        <div class="flex justify-between items-center mb-2">
+                            <p class="text-[10px] text-gray-400 font-bold uppercase">학생 명단</p>
+                            <button onclick="downloadSample()" class="text-[10px] text-pink-400 hover:underline">📥 샘플 양식</button>
+                        </div>
+                        <ul id="studentList" class="space-y-1 text-sm text-gray-500 max-h-[300px] overflow-y-auto pr-2"></ul>
+                    </div>
                 </div>
             </div>
 
@@ -154,15 +143,15 @@
                 </div>
             </div>
             <div class="mt-8 flex gap-2">
-                <button onclick="saveSettings()" class="flex-1 bg-pink-500 text-white py-2 rounded-lg font-bold shadow-lg shadow-pink-100">적용</button>
+                <button onclick="saveSettings()" class="flex-1 bg-pink-500 text-white py-2 rounded-lg font-bold">적용</button>
                 <button onclick="closeSettings()" class="flex-1 bg-gray-100 text-gray-600 py-2 rounded-lg">닫기</button>
             </div>
         </div>
     </div>
 
     <script>
-        // --- 데이터 상태 ---
-        let classes = JSON.parse(localStorage.getItem('seatHelper_v5')) || [
+        // --- 데이터 관리 ---
+        let classes = JSON.parse(localStorage.getItem('seatHelper_v8')) || [
             { id: Date.now(), name: '1반', students: [], arrangement: [] }
         ];
         let currentClassId = classes[0].id;
@@ -171,43 +160,29 @@
 
         window.onload = () => { renderTabs(); loadClassData(); initUpload(); };
 
-        // --- 배치 동기화 핵심 기능 ---
-        function syncPatternToAll() {
-            const currentClass = getCurrentClass();
-            if (!currentClass.arrangement || currentClass.arrangement.length === 0) {
-                alert('현재 반의 자리를 먼저 배치해주세요!');
-                return;
-            }
-
-            if (!confirm(`현재 '${currentClass.name}'의 책상 배치 순서를 모든 반에 똑같이 적용할까요? (학생은 각 반 명단에 맞게 배치됩니다)`)) return;
-
-            // 1. 현재 반의 패턴 파악 (책상 위치별로 몇 번 학생이 앉았는지)
-            // 예: 1번 책상에 '3번 학생'이 앉아있음 -> 패턴 index 0은 학생번호 3
-            const pattern = currentClass.arrangement.map(studentName => {
-                return currentClass.students.indexOf(studentName);
-            });
-
-            // 2. 다른 모든 반에 해당 패턴 적용
-            classes.forEach(cls => {
-                if (cls.id === currentClassId) return; // 현재 반은 건너뜀
-
-                const newArrangement = [];
-                pattern.forEach(studentIdx => {
-                    // 해당 번호의 학생이 그 반에 존재하면 배치, 없으면 빈자리
-                    if (studentIdx !== -1 && cls.students[studentIdx]) {
-                        newArrangement.push(cls.students[studentIdx]);
-                    } else {
-                        newArrangement.push(null);
-                    }
-                });
-                cls.arrangement = newArrangement;
-            });
-
-            saveToLocal();
-            alert('모든 반에 동일한 배치 패턴이 적용되었습니다.');
+        // --- 샘플 서식 ---
+        function downloadSample() {
+            const wb = XLSX.utils.book_new();
+            const data = [["번호", "이름"], [1, "강백호"], [2, "서태웅"], [3, "채치수"]];
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            XLSX.utils.book_append_sheet(wb, ws, "명단양식");
+            XLSX.writeFile(wb, "자리배치_명단양식.xlsx");
         }
 
-        // --- 출력 시스템 ---
+        // --- 배치 동기화 ---
+        function syncPatternToAll() {
+            const currentClass = getCurrentClass();
+            if (!currentClass.arrangement.length) return alert('현재 반의 자리를 먼저 배치해주세요!');
+            if (!confirm(`현재 배치 패턴을 모든 반에 동일하게 적용할까요?`)) return;
+            const pattern = currentClass.arrangement.map(s => s ? s.no : null);
+            classes.forEach(cls => {
+                if (cls.id === currentClassId) return;
+                cls.arrangement = pattern.map(no => no ? (cls.students.find(s => s.no == no) || null) : null);
+            });
+            saveToLocal(); alert('적용되었습니다.');
+        }
+
+        // --- 출력 ---
         function toggleExportMenu() { const m = document.getElementById('exportMenu'); m.style.display = (m.style.display === 'block' ? 'none' : 'block'); }
         async function exportResult(type) {
             const el = document.getElementById('printArea');
@@ -231,12 +206,14 @@
             }
         }
 
-        // --- 명단 관리 ---
+        // --- 명단 업로드 및 수동 추가 ---
         function addStudentManual() {
             const input = document.getElementById('manualNameInput');
             const name = input.value.trim();
             if (!name) return;
-            getCurrentClass().students.push(name);
+            const cls = getCurrentClass();
+            const nextNo = cls.students.length > 0 ? Math.max(...cls.students.map(s => s.no)) + 1 : 1;
+            cls.students.push({ no: nextNo, name: name });
             input.value = ''; saveToLocal(); loadClassData();
         }
 
@@ -250,26 +227,33 @@
             });
             document.getElementById('fileInput').addEventListener('change', (e) => { if (e.target.files.length) handleFile(e.target.files[0]); });
         }
+
         function handleFile(file) {
             const reader = new FileReader();
             reader.onload = (e) => {
                 const workbook = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
                 const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                const names = XLSX.utils.sheet_to_json(sheet, {header: 1}).map(r => r[0]).filter(n => n && n.toString().trim());
+                const rows = XLSX.utils.sheet_to_json(sheet, {header: 1});
+                const startIndex = (rows[0][0] === '번호' || isNaN(rows[0][0])) ? 1 : 0;
+                const newStudents = [];
+                for(let i = startIndex; i < rows.length; i++) {
+                    const no = rows[i][0], name = rows[i][1];
+                    if (name) newStudents.push({ no: no || (i + 1), name: name.toString().trim() });
+                }
                 const cls = getCurrentClass();
-                cls.students = [...cls.students, ...names];
-                cls.arrangement = []; saveToLocal(); loadClassData();
+                cls.students = newStudents; cls.arrangement = [];
+                saveToLocal(); loadClassData();
             };
             reader.readAsArrayBuffer(file);
         }
 
         function getCurrentClass() { return classes.find(c => c.id === currentClassId); }
-        function saveToLocal() { localStorage.setItem('seatHelper_v5', JSON.stringify(classes)); }
+        function saveToLocal() { localStorage.setItem('seatHelper_v8', JSON.stringify(classes)); }
         function renderTabs() {
             const container = document.getElementById('classTabs'); container.innerHTML = '';
             classes.forEach(cls => {
                 const btn = document.createElement('button');
-                btn.className = `px-4 py-1 rounded-lg text-sm font-medium transition-all ${cls.id === currentClassId ? 'bg-pink-500 text-white shadow-md' : 'bg-white text-gray-500 hover:bg-pink-50 border'}`;
+                btn.className = `px-4 py-1 rounded-lg text-sm font-medium transition-all ${cls.id === currentClassId ? 'bg-pink-500 text-white shadow-md' : 'bg-white text-gray-500 border'}`;
                 btn.innerText = cls.name; btn.onclick = () => { currentClassId = cls.id; renderTabs(); loadClassData(); };
                 container.appendChild(btn);
             });
@@ -291,10 +275,10 @@
             const cls = getCurrentClass();
             document.getElementById('classNameInput').value = cls.name;
             const listEl = document.getElementById('studentList');
-            listEl.innerHTML = cls.students.length ? '' : '<li class="italic py-8 text-center text-gray-300">이름을 입력하거나<br>파일을 드래그하세요</li>';
-            cls.students.forEach((n, i) => {
-                const li = document.createElement('li'); li.className = 'flex justify-between p-1 border-b border-pink-50 group hover:bg-pink-50';
-                li.innerHTML = `<span>${i+1}. ${n}</span> <button onclick="removeStudent(${i})" class="hidden group-hover:block text-red-400 text-xs">삭제</button>`; 
+            listEl.innerHTML = cls.students.length ? '' : '<li class="italic py-8 text-center text-gray-300">명단을 등록하세요</li>';
+            cls.students.forEach((s, i) => {
+                const li = document.createElement('li'); li.className = 'flex justify-between p-1 border-b border-pink-50 group hover:bg-pink-50 text-xs';
+                li.innerHTML = `<span>${s.no}. ${s.name}</span> <button onclick="removeStudent(${i})" class="hidden group-hover:block text-red-400">삭제</button>`; 
                 listEl.appendChild(li);
             });
             renderDesks(cls.arrangement);
@@ -307,7 +291,7 @@
 
         function arrangeSeats() {
             const cls = getCurrentClass();
-            if (!cls.students.length) return alert('명단을 먼저 등록하세요.');
+            if (!cls.students.length) return alert('명단을 등록하세요.');
             let list = [...cls.students];
             if (!document.getElementById('orderMode').checked) {
                 for (let i = list.length - 1; i > 0; i--) {
@@ -329,7 +313,9 @@
 
         function renderDesks(arrangement = []) {
             const grid = document.getElementById('seatGrid');
-            const showNum = document.getElementById('showNumberToggle').checked;
+            const showDeskNum = document.getElementById('showNumberToggle').checked; // 책상 위치 번호
+            const showStudentNum = document.getElementById('showStudentNoToggle').checked; // 학생 번호
+
             grid.innerHTML = '';
             grid.className = (config.mode === 'pair') ? 'grid-pair' : 'grid-exam';
             grid.style.gridTemplateColumns = `repeat(${config.cols}, auto)`;
@@ -356,8 +342,23 @@
                 desk.addEventListener('dragleave', () => desk.classList.remove('over'));
                 desk.addEventListener('drop', handleDrop);
 
-                let numLabel = showNum ? `<span class="text-[9px] opacity-30 absolute top-1 left-1">${dataIdx + 1}</span>` : '';
-                desk.innerHTML = `${numLabel}<span class="text-sm">${arrangement[dataIdx] || ''}</span>`;
+                // 1. 책상 위치 번호 (1~40)
+                let deskNumLabel = showDeskNum ? `<span class="text-[9px] opacity-30 absolute top-1 left-1 font-normal">${dataIdx + 1}</span>` : '';
+                
+                const student = arrangement[dataIdx];
+                if (student) {
+                    // 2. 학생 개인 번호
+                    let studentNoHtml = showStudentNum ? `<span class="text-[10px] text-pink-400 leading-none mb-1">${student.no}</span>` : '';
+                    desk.innerHTML = `
+                        ${deskNumLabel}
+                        <div class="flex flex-col items-center justify-center pt-1">
+                            ${studentNoHtml}
+                            <span class="text-sm font-bold leading-none">${student.name}</span>
+                        </div>
+                    `;
+                } else {
+                    desk.innerHTML = deskNumLabel;
+                }
                 grid.appendChild(desk);
             }
         }
@@ -367,8 +368,7 @@
             e.preventDefault(); this.classList.remove('over'); dragSource.style.opacity = '1';
             if (dragSource !== this) {
                 const cls = getCurrentClass();
-                const srcIdx = parseInt(dragSource.dataset.index);
-                const destIdx = parseInt(this.dataset.index);
+                const srcIdx = parseInt(dragSource.dataset.index), destIdx = parseInt(this.dataset.index);
                 [cls.arrangement[srcIdx], cls.arrangement[destIdx]] = [cls.arrangement[destIdx], cls.arrangement[srcIdx]];
                 saveToLocal(); renderDesks(cls.arrangement);
             }
